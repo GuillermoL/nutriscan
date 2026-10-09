@@ -1,0 +1,26 @@
+@switch (status()) {
+  @case ('doubtful') {
+    <span class="status-badge status-badge--doubtful" [title]="tooltip()">
+      <svg class="status-badge__icon" viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M8 1 15 14H1Z" fill="var(--status-warning)" />
+        <rect x="7.25" y="5.5" width="1.5" height="4.5" fill="var(--surface-1)" />
+        <rect x="7.25" y="10.75" width="1.5" height="1.5" fill="var(--surface-1)" />
+      </svg>
+      <span>Dudoso</span>
+    </span>
+  }
+  @case ('not_found') {
+    <span class="status-badge status-badge--not-found">
+      <span>— No encontrado</span>
+    </span>
+  }
+  @default {
+    <span class="status-badge status-badge--ok">
+      <svg class="status-badge__icon" viewBox="0 0 16 16" aria-hidden="true">
+        <circle cx="8" cy="8" r="7" fill="var(--status-good)" />
+        <path d="M4.5 8.2 7 10.7 11.5 5.8" stroke="var(--surface-1)" stroke-width="1.6" fill="none" />
+      </svg>
+      <span>Ok</span>
+    </span>
+  }
+}

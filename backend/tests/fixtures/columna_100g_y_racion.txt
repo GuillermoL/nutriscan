@@ -1,0 +1,5 @@
+Informacion nutricional          Por 100 g       Por racion (30 g)
+Valor energetico                 1700 kJ/405 kcal   510 kJ/121 kcal
+Grasas                           20 g            6 g
+Hidratos de carbono               60 g           18 g
+Proteinas                         8 g            2.4 g

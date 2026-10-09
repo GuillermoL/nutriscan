@@ -1,0 +1,41 @@
+<div
+  class="dropzone"
+  [class.dropzone--over]="isDragOver()"
+  [class.dropzone--disabled]="disabled()"
+  (dragover)="onDragOver($event)"
+  (dragleave)="onDragLeave()"
+  (drop)="onDrop($event)"
+>
+  @if (!selectedFile()) {
+    <p class="dropzone__prompt">Arrastra una foto o un PDF de la etiqueta nutricional</p>
+    <label class="dropzone__button">
+      Seleccionar archivo
+      <input
+        type="file"
+        accept="image/jpeg,image/png,image/webp,application/pdf"
+        [disabled]="disabled()"
+        (change)="onFileInputChange($event)"
+      />
+    </label>
+    <p class="dropzone__hint">JPG, PNG, WEBP o PDF · máximo 10 MB</p>
+  } @else {
+    <div class="dropzone__preview">
+      @if (previewUrl()) {
+        <img [src]="previewUrl()" alt="Vista previa de la etiqueta subida" />
+      } @else {
+        <div class="dropzone__pdf-icon">PDF</div>
+      }
+      <p class="dropzone__filename">{{ selectedFile()!.name }}</p>
+    </div>
+    <div class="dropzone__actions">
+      <button type="button" class="dropzone__secondary" (click)="clear()" [disabled]="disabled()">Quitar</button>
+      <button type="button" class="dropzone__primary" (click)="confirmAnalyze()" [disabled]="disabled()">
+        Analizar
+      </button>
+    </div>
+  }
+
+  @if (validationError()) {
+    <p class="dropzone__error" role="alert">{{ validationError() }}</p>
+  }
+</div>

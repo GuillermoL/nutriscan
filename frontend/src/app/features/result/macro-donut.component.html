@@ -1,0 +1,43 @@
+<div class="macro-donut">
+  <svg viewBox="0 0 150 150" class="macro-donut__svg" role="img" aria-label="Reparto de macronutrientes por 100 g">
+    <circle cx="75" cy="75" [attr.r]="radius" fill="none" [attr.stroke-width]="strokeWidth" stroke="var(--gridline)" />
+    @for (segment of segments(); track segment.name) {
+      @if (segment.value > 0) {
+        <circle
+          cx="75"
+          cy="75"
+          [attr.r]="radius"
+          fill="none"
+          [attr.stroke-width]="strokeWidth"
+          [attr.stroke]="segment.color"
+          [attr.stroke-dasharray]="segment.dashArray"
+          [attr.stroke-dashoffset]="segment.dashOffset"
+          stroke-linecap="butt"
+          transform="rotate(-90 75 75)"
+        />
+      }
+    }
+    <text x="75" y="70" text-anchor="middle" class="macro-donut__kcal">{{ kcal() ?? '—' }}</text>
+    <text x="75" y="90" text-anchor="middle" class="macro-donut__kcal-label">kcal / 100 g</text>
+  </svg>
+
+  <ul class="macro-donut__legend">
+    @for (segment of segments(); track segment.name) {
+      <li>
+        <span class="macro-donut__swatch" [style.background]="segment.color"></span>
+        <span class="macro-donut__legend-label">{{ segment.name }}</span>
+        <span class="macro-donut__legend-value">
+          @if (segment.value > 0) {
+            {{ segment.value }} g ({{ segment.percent | number: '1.0-0' }}%)
+          } @else {
+            —
+          }
+        </span>
+      </li>
+    }
+  </ul>
+
+  @if (!hasData()) {
+    <p class="macro-donut__empty">Sin datos suficientes para el reparto de macros.</p>
+  }
+</div>

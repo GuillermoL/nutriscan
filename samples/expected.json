@@ -1,0 +1,50 @@
+{
+  "1.jpg": {
+    "energy_kcal": 391,
+    "fat_g": 15.8,
+    "carbohydrates_g": 44.0,
+    "protein_g": 9.4
+  },
+  "2.jpg": {
+    "energy_kcal": 74,
+    "fat_g": 3.3,
+    "carbohydrates_g": 9.0,
+    "protein_g": 1.4
+  },
+  "3.jpg": {
+    "energy_kcal": 371,
+    "fat_g": 31,
+    "carbohydrates_g": 1.0,
+    "protein_g": 22
+  },
+  "4.jpg": {
+    "energy_kcal": 330,
+    "fat_g": 2.6,
+    "carbohydrates_g": 67.5,
+    "protein_g": 9.2
+  },
+  "5.jpg": {
+    "energy_kcal": 338,
+    "fat_g": 0.5,
+    "carbohydrates_g": 75.3,
+    "protein_g": 7.9
+  },
+  "6.jpg": {
+    "energy_kcal": 399,
+    "fat_g": 34,
+    "carbohydrates_g": 1.3,
+    "protein_g": 22
+  },
+  "7.jpg": {
+    "energy_kcal": 355,
+    "fat_g": 0.5,
+    "carbohydrates_g": 86,
+    "protein_g": 0.5
+  },
+  "8.jpg": {
+    "energy_kcal": 629,
+    "fat_g": 70,
+    "carbohydrates_g": 0.5,
+    "protein_g": 0.5
+  }
+}

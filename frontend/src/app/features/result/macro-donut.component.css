@@ -1,0 +1,63 @@
+.macro-donut {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.macro-donut__svg {
+  width: 150px;
+  height: 150px;
+  flex: none;
+}
+
+.macro-donut__kcal {
+  font-size: 1.6rem;
+  font-weight: 700;
+  fill: var(--text-primary);
+}
+
+.macro-donut__kcal-label {
+  font-size: 0.7rem;
+  fill: var(--text-muted);
+}
+
+.macro-donut__legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 180px;
+}
+
+.macro-donut__legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.macro-donut__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex: none;
+}
+
+.macro-donut__legend-label {
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.macro-donut__legend-value {
+  color: var(--text-primary);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.macro-donut__empty {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}

@@ -1,0 +1,109 @@
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2rem 1.5rem;
+  border: 2px dashed var(--gridline);
+  border-radius: 12px;
+  background: var(--surface-1);
+  text-align: center;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.dropzone--over {
+  border-color: var(--series-fat);
+  background: color-mix(in srgb, var(--series-fat) 6%, var(--surface-1));
+}
+
+.dropzone--disabled {
+  opacity: 0.6;
+}
+
+.dropzone__prompt {
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.dropzone__hint {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.dropzone__button {
+  position: relative;
+  display: inline-block;
+  padding: 0.6rem 1.25rem;
+  border-radius: 8px;
+  background: var(--text-primary);
+  color: var(--surface-1);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.dropzone__button input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.dropzone__preview img {
+  max-width: 100%;
+  max-height: 220px;
+  border-radius: 8px;
+  display: block;
+  margin: 0 auto 0.5rem;
+}
+
+.dropzone__pdf-icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 0.5rem;
+  border-radius: 8px;
+  background: var(--gridline);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.dropzone__filename {
+  color: var(--text-secondary);
+  margin: 0;
+  word-break: break-all;
+}
+
+.dropzone__actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.dropzone__primary,
+.dropzone__secondary {
+  padding: 0.5rem 1.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dropzone__primary {
+  background: var(--text-primary);
+  color: var(--surface-1);
+  border-color: transparent;
+}
+
+.dropzone__secondary {
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.dropzone__error {
+  color: var(--status-critical);
+  font-weight: 600;
+  margin: 0.25rem 0 0;
+}

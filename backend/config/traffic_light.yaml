@@ -1,0 +1,23 @@
+# Umbrales del semáforo nutricional, por 100 g/ml (sólidos).
+#
+# fat_g usa los umbrales oficiales del semáforo FSA (Reino Unido).
+# energy_kcal, carbohydrates_g y protein_g son una propuesta propia, sin
+# estándar oficial: ver README para la justificación.
+basis: per_100g
+rules:
+  fat_g:
+    green_max: 3.0
+    red_min: 17.5
+    direction: lower_is_better
+  energy_kcal:
+    green_max: 150
+    red_min: 400
+    direction: lower_is_better
+  carbohydrates_g:
+    green_max: 15.0
+    red_min: 45.0
+    direction: lower_is_better
+  protein_g:
+    green_min: 10.0
+    red_max: 3.0
+    direction: higher_is_better

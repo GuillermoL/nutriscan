@@ -1,0 +1,31 @@
+<main class="app">
+  <header class="app__header">
+    <h1>NutriScan</h1>
+    <p>Sube la foto de una etiqueta nutricional y obtén sus valores por 100&nbsp;g con un semáforo.</p>
+  </header>
+
+  @if (state() === 'error' && error()) {
+    <div class="banner banner--error" role="alert">
+      <div>
+        <p class="banner__message">{{ error()!.message }}</p>
+        <p class="banner__hint">{{ error()!.hint }}</p>
+      </div>
+      <button type="button" class="banner__retry" (click)="retry()">Probar otra foto</button>
+    </div>
+  }
+
+  @if (state() !== 'success' && state() !== 'partial') {
+    <app-upload-dropzone [disabled]="isBusy" (analyze)="analyze($event)" />
+  }
+
+  @if (isBusy) {
+    <p class="app__status" role="status">
+      {{ state() === 'uploading' ? 'Subiendo imagen…' : 'Analizando la etiqueta…' }}
+    </p>
+  }
+
+  @if ((state() === 'success' || state() === 'partial') && result()) {
+    <app-result-card [result]="result()!" [trafficLightRules]="trafficLightRules()" />
+    <button type="button" class="app__retry" (click)="retry()">Analizar otra foto</button>
+  }
+</main>

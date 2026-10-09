@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+
+# Node / Angular
+node_modules/
+frontend/.angular/
+frontend/dist/
+frontend/coverage/
+
+# IDE / OS
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Claude Code (herramienta de desarrollo, no entregable)
+.claude/
+CLAUDE.md
+docs/MASTER.md

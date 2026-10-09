@@ -1,0 +1,57 @@
+.bar-row {
+  display: grid;
+  grid-template-columns: 140px 1fr 72px;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.bar-row__label {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.bar-row__value {
+  color: var(--text-primary);
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.bar {
+  position: relative;
+  height: 12px;
+  background: var(--status-unknown);
+  border-radius: 6px;
+}
+
+.bar--doubtful {
+  outline: 2px dashed var(--status-warning);
+  outline-offset: 3px;
+}
+
+.bar--not-found {
+  background: var(--gridline);
+}
+
+.bar__track {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.bar__segment {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.bar__marker {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 4px;
+  border-radius: 2px;
+  transform: translateX(-50%);
+  box-shadow: 0 0 0 2px var(--surface-1);
+}
