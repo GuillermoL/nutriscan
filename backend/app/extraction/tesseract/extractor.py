@@ -6,25 +6,20 @@ resto de la app solo ve app.extraction.base.Extractor.
 from __future__ import annotations
 
 import io
-import re
-from dataclasses import replace
 
 import cv2
 import fitz
 import numpy as np
 from PIL import Image, ImageOps
 
-from app.domain.errors import CorruptFileError, NoNutritionTableError, NoTextDetectedError, UnsupportedFormatError
-from app.domain.models import CheckResult, ExtractionResult, FieldStatus, NutritionField
+from app.domain.errors import CorruptFileError, NoNutritionTableError, NoTextDetectedError
+from app.domain.models import ExtractionResult, FieldStatus, NutritionField
+from app.domain.nutrition_checks import apply_check_results, run_checks
+from app.domain.validators import is_in_range
+from app.extraction.magic_bytes import detect_mime_type
 from app.extraction.tesseract import ocr as ocr_module
 from app.extraction.tesseract.parser import ParsedField, parse_label_text
 from app.extraction.tesseract.preprocess import PreprocessResult, preprocess_image
-from app.extraction.tesseract.validators import (
-    atwater_consistent,
-    is_in_range,
-    kj_kcal_consistent,
-    macro_sum_valid,
-)
 
 EXTRACTOR_NAME = "tesseract-rules@1.0"
 MIN_TEXT_CHARS = 20
@@ -33,24 +28,6 @@ MIN_TEXT_CHARS = 20
 PSM_ATTEMPTS = ("6", "4")
 MIN_FIELDS_TO_STOP_RETRYING = 2
 PDF_RENDER_DPI = 300
-
-_KJ_PATTERN = re.compile(r"(\d{1,4}(?:[.,]\d{1,2})?)\s*kj")
-
-
-def detect_mime_type(content: bytes) -> str:
-    """Identifica el formato real por magic bytes; nunca por la extensión."""
-    if content.startswith(b"\xff\xd8\xff"):
-        return "image/jpeg"
-    if content.startswith(b"\x89PNG\r\n\x1a\n"):
-        return "image/png"
-    if content[:4] == b"RIFF" and content[8:12] == b"WEBP":
-        return "image/webp"
-    if content.startswith(b"%PDF"):
-        return "application/pdf"
-    raise UnsupportedFormatError(
-        message="El tipo de archivo no está admitido.",
-        hint="Sube una foto en JPG, PNG o WEBP, o un PDF.",
-    )
 
 
 def _load_image(content: bytes) -> np.ndarray:
@@ -124,15 +101,6 @@ def _ocr_with_psm_retries(
     return best
 
 
-def _extract_kj_from_raw(raw_text: str | None) -> float | None:
-    if not raw_text:
-        return None
-    match = _KJ_PATTERN.search(raw_text.lower())
-    if not match:
-        return None
-    return float(match.group(1).replace(",", "."))
-
-
 def _map_source(parsed_source: str | None, origin: str) -> str | None:
     if parsed_source is None or origin != "pdf_text":
         return parsed_source
@@ -179,97 +147,6 @@ def _build_fields(
     return fields
 
 
-def _downgrade(nutrition_field: NutritionField, reason: str) -> NutritionField:
-    if nutrition_field.status == FieldStatus.NOT_FOUND:
-        return nutrition_field
-    combined_reason = f"{nutrition_field.reason}; {reason}" if nutrition_field.reason else reason
-    return replace(
-        nutrition_field,
-        status=FieldStatus.DOUBTFUL,
-        confidence=round(nutrition_field.confidence * 0.7, 2),
-        reason=combined_reason,
-    )
-
-
-def _run_checks(fields: dict[str, NutritionField]) -> list[CheckResult]:
-    checks: list[CheckResult] = []
-    energy, fat, carbs, protein = (
-        fields["energy_kcal"],
-        fields["fat_g"],
-        fields["carbohydrates_g"],
-        fields["protein_g"],
-    )
-
-    kj_value = _extract_kj_from_raw(energy.raw_text) if energy.value is not None else None
-    if kj_value is not None:
-        passed = kj_kcal_consistent(kj_value, energy.value)
-        checks.append(
-            CheckResult(
-                name="kj_kcal_consistency",
-                passed=passed,
-                detail=f"{kj_value:g} kJ declarados vs {energy.value:g} kcal declaradas",
-            )
-        )
-
-    macros = {"fat_g": fat.value, "carbohydrates_g": carbs.value, "protein_g": protein.value}
-    missing = [name for name, value in macros.items() if value is None]
-    if energy.value is None:
-        missing = ["energy_kcal", *missing]
-    if missing:
-        checks.append(
-            CheckResult(
-                name="atwater_energy",
-                passed=False,
-                detail=f"No evaluable: falta(n) {', '.join(missing)}",
-            )
-        )
-    else:
-        expected_kcal = 9 * fat.value + 4 * carbs.value + 4 * protein.value
-        passed = atwater_consistent(energy.value, fat.value, carbs.value, protein.value)
-        checks.append(
-            CheckResult(
-                name="atwater_energy",
-                passed=passed,
-                detail=f"{energy.value:g} kcal declaradas vs {expected_kcal:g} calculadas (Atwater)",
-            )
-        )
-
-    if not missing:
-        passed = macro_sum_valid(fat.value, carbs.value, protein.value)
-        checks.append(
-            CheckResult(
-                name="macro_sum",
-                passed=passed,
-                detail=f"Suma de macronutrientes: {fat.value + carbs.value + protein.value:g} g por 100 g",
-            )
-        )
-
-    return checks
-
-
-def _apply_check_results(
-    fields: dict[str, NutritionField], checks: list[CheckResult]
-) -> dict[str, NutritionField]:
-    updated = dict(fields)
-    by_name = {check.name: check for check in checks}
-
-    kj_check = by_name.get("kj_kcal_consistency")
-    if kj_check and not kj_check.passed:
-        updated["energy_kcal"] = _downgrade(updated["energy_kcal"], "Incoherencia kJ/kcal")
-
-    atwater_check = by_name.get("atwater_energy")
-    if atwater_check and not atwater_check.passed and not atwater_check.detail.startswith("No evaluable"):
-        for name in ("energy_kcal", "fat_g", "carbohydrates_g", "protein_g"):
-            updated[name] = _downgrade(updated[name], "Incoherencia con el cálculo de Atwater")
-
-    macro_check = by_name.get("macro_sum")
-    if macro_check and not macro_check.passed:
-        for name in ("fat_g", "carbohydrates_g", "protein_g"):
-            updated[name] = _downgrade(updated[name], "Suma de macronutrientes superior a 100 g")
-
-    return updated
-
-
 class TesseractExtractor:
     name = EXTRACTOR_NAME
 
@@ -309,8 +186,8 @@ class TesseractExtractor:
             )
 
         fields = _build_fields(parsed_fields, base_confidence, origin)
-        checks = _run_checks(fields)
-        fields = _apply_check_results(fields, checks)
+        checks = run_checks(fields)
+        fields = apply_check_results(fields, checks)
 
         return ExtractionResult(
             basis="per_100g",

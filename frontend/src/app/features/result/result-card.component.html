@@ -1,55 +1,21 @@
 <section class="result-card">
-  @if (foundCount() < 4) {
-    <p class="result-card__partial-note" role="status">
-      Se han encontrado {{ foundCount() }} de 4 campos. Revisa los marcados como "No encontrado".
-    </p>
-  }
-
-  <app-macro-donut
-    [fatG]="result().fields['fat_g'].value"
-    [carbsG]="result().fields['carbohydrates_g'].value"
-    [proteinG]="result().fields['protein_g'].value"
-    [kcal]="result().fields['energy_kcal'].value"
-  />
-
-  <div class="result-card__bars">
-    @for (name of fieldNames; track name) {
-      <div class="result-card__field">
-        <app-traffic-light-bar
-          [label]="fieldLabels[name]"
-          [value]="result().fields[name].value"
-          [unit]="result().fields[name].unit"
-          [status]="result().fields[name].status"
-          [color]="result().traffic_light[name]"
-          [rule]="ruleFor(name)"
-        />
-        <app-field-status-badge
-          [status]="result().fields[name].status"
-          [reason]="result().fields[name].reason"
-          [rawText]="result().fields[name].raw_text"
-        />
-      </div>
-    }
+  <div class="result-card__overall" [attr.data-color]="overallColor() ?? 'unknown'">
+    <span class="result-card__overall-dot" aria-hidden="true"></span>
+    <span class="result-card__overall-label">{{ overallLabel() }}</span>
   </div>
 
-  @if (result().warnings.length > 0) {
-    <ul class="result-card__warnings">
-      @for (warning of result().warnings; track warning) {
-        <li>⚠ {{ warning }}</li>
-      }
-    </ul>
-  }
-
-  <details class="result-card__checks">
-    <summary>Comprobaciones de coherencia ({{ result().checks.length }})</summary>
-    <ul>
-      @for (check of result().checks; track check.name) {
-        <li [class.result-card__check--failed]="!check.passed">
-          {{ check.passed ? '✓' : '✕' }} {{ check.detail }}
-        </li>
-      }
-    </ul>
-  </details>
-
-  <p class="result-card__meta">Extractor: {{ result().extractor }} · {{ result().processing_ms }} ms</p>
+  <dl class="result-card__fields">
+    @for (name of fieldNames; track name) {
+      <div class="result-card__field">
+        <dt>{{ fieldLabels[name] }}</dt>
+        <dd>
+          @if (valueFor(name) !== null) {
+            {{ valueFor(name) | number: '1.0-1' }} {{ unitFor(name) }}
+          } @else {
+            —
+          }
+        </dd>
+      </div>
+    }
+  </dl>
 </section>

@@ -2,10 +2,9 @@ import { HttpClient, HttpEvent } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 
-import { FieldName, LabelExtractionResponse, TrafficLightRule } from '../models/extraction.model';
+import { LabelExtractionResponse } from '../models/extraction.model';
 
 const EXTRACT_ENDPOINT = '/api/v1/labels/extract';
-const TRAFFIC_LIGHT_CONFIG_ENDPOINT = '/api/v1/traffic-light/config';
 
 @Injectable({ providedIn: 'root' })
 export class LabelApiService {
@@ -22,9 +21,5 @@ export class LabelApiService {
       reportProgress: true,
       observe: 'events'
     });
-  }
-
-  getTrafficLightConfig(): Observable<Record<FieldName, TrafficLightRule>> {
-    return this.http.get<Record<FieldName, TrafficLightRule>>(TRAFFIC_LIGHT_CONFIG_ENDPOINT);
   }
 }

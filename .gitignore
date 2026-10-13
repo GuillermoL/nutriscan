@@ -26,3 +26,7 @@ Thumbs.db
 .claude/
 CLAUDE.md
 docs/MASTER.md
+
+# Secretos locales (claves de API) — nunca al repo
+.env
+.env.*

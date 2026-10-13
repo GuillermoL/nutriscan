@@ -6,6 +6,7 @@ YAML es inválido, la app no arranca y el motivo queda en el traceback.
 from __future__ import annotations
 
 import logging
+import os
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,7 +41,7 @@ app.include_router(labels_router)
 @app.get("/health")
 async def health(settings: Settings = Depends(get_settings)) -> dict:
     status: dict = {"status": "ok", "extractor": settings.extractor}
-    if settings.extractor == "tesseract":
+    if settings.extractor in ("tesseract", "hybrid"):
         try:
             import pytesseract
 
@@ -48,4 +49,12 @@ async def health(settings: Settings = Depends(get_settings)) -> dict:
         except Exception:
             status["status"] = "degraded"
             status["detail"] = "OCR_ENGINE_UNAVAILABLE"
+    if settings.extractor in ("claude", "hybrid") and not os.environ.get("ANTHROPIC_API_KEY"):
+        # En modo "hybrid" esto no es fatal (el OCR sigue funcionando solo),
+        # así que solo se degrada aquí si la IA es el único extractor.
+        if settings.extractor == "claude":
+            status["status"] = "degraded"
+            status["detail"] = "OCR_ENGINE_UNAVAILABLE"
+        else:
+            status.setdefault("warning", "ANTHROPIC_API_KEY no configurada: el respaldo de IA no funcionará")
     return status

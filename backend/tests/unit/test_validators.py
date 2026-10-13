@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.extraction.tesseract.validators import (
+from app.domain.validators import (
     atwater_consistent,
     is_in_range,
     kj_kcal_consistent,

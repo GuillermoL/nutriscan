@@ -9,7 +9,7 @@ import time
 import uuid
 
 from app.domain.models import FieldStatus, LabelAnalysisResult, TrafficLightColor
-from app.domain.traffic_light import TrafficLightRule, classify_value
+from app.domain.traffic_light import TrafficLightRule, classify_value, overall_color
 from app.extraction.base import Extractor
 
 
@@ -35,6 +35,7 @@ def analyze_label(
         basis=extraction.basis,
         fields=extraction.fields,
         traffic_light=traffic_light,
+        overall_traffic_light=overall_color(traffic_light),
         checks=extraction.checks,
         warnings=extraction.warnings,
         extractor=extraction.extractor,

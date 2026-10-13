@@ -41,6 +41,7 @@ export interface LabelExtractionResponse {
   basis: string;
   fields: Record<FieldName, NutritionField>;
   traffic_light: Record<FieldName, TrafficLightColor | null>;
+  overall_traffic_light: TrafficLightColor | null;
   checks: CheckResult[];
   warnings: string[];
   extractor: string;

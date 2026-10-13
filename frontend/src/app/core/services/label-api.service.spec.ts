@@ -26,6 +26,7 @@ describe('LabelApiService', () => {
       basis: 'per_100g',
       fields: {},
       traffic_light: {},
+      overall_traffic_light: null,
       checks: [],
       warnings: [],
       extractor: 'tesseract-rules@1.0',
@@ -45,19 +46,5 @@ describe('LabelApiService', () => {
     req.flush(response);
 
     expect(received).toEqual(response);
-  });
-
-  it('obtiene los umbrales del semáforo', () => {
-    const rules = {
-      fat_g: { direction: 'lower_is_better', green_max: 3, red_min: 17.5, green_min: null, red_max: null }
-    };
-
-    let received: unknown;
-    service.getTrafficLightConfig().subscribe((value) => (received = value));
-
-    const req = httpMock.expectOne('/api/v1/traffic-light/config');
-    req.flush(rules);
-
-    expect(received).toEqual(rules);
   });
 });

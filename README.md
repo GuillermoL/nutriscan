@@ -1,11 +1,12 @@
 # NutriScan
 
-Prueba técnica Zebra (Full Stack Software Engineer, ref. `260930_ZEBRA_TEC_PRUEBA_TECNICA_FULLSTACK`).
-
 NutriScan recibe la foto (o PDF) de una etiqueta nutricional y extrae energía
-(kcal), grasas, hidratos de carbono y proteínas por 100 g/ml **sin usar IA**:
-OCR local (Tesseract) + reglas deterministas. El resultado se muestra con un
-semáforo nutricional configurable.
+(kcal), grasas, hidratos de carbono y proteínas por 100 g/ml. La extracción
+es **híbrida**: OCR local (Tesseract) + reglas deterministas como camino
+principal (gratis, rápido, determinista); si ese camino no encuentra los
+cuatro campos con confianza, se repite la extracción con un modelo de IA con
+visión (Claude) como respaldo sobre la misma foto. El resultado se muestra
+con un semáforo nutricional único del producto y los cuatro valores.
 
 ## Arranque con Docker (recomendado)
 
@@ -20,6 +21,18 @@ docker compose up --build
 
 El backend incluye Tesseract 5 con los paquetes de idioma `spa` y `eng` ya
 instalados en la imagen; no hace falta nada más en el host.
+
+Para que funcione el respaldo de IA necesitas una clave de la API de
+Anthropic en la variable `ANTHROPIC_API_KEY` (`docker compose` la pasa al
+contenedor si está en tu entorno o en un `.env` en la raíz del repo):
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...   # o en .env, en la raíz del repo
+docker compose up --build
+```
+
+Sin esa clave la app sigue arrancando y funcionando: el modo híbrido se
+degrada automáticamente a solo-OCR (ver `/health` y la sección de errores).
 
 ## Arranque en local (sin Docker)
 
@@ -55,7 +68,9 @@ Frontend en http://localhost:4200, con proxy a `/api` definido en
 
 | Variable | Por defecto | Para qué |
 |---|---|---|
-| `EXTRACTOR` | `tesseract` | Selecciona el extractor en `extraction/factory.py`. Cambiarlo por otro valor (p. ej. un futuro extractor LLM) no requiere tocar API, servicio ni frontend. |
+| `EXTRACTOR` | `hybrid` | Selecciona el extractor en `extraction/factory.py`: `hybrid` (OCR + respaldo de IA, recomendado), `tesseract` (solo OCR, sin red ni coste) o `claude` (solo IA, sin OCR). |
+| `ANTHROPIC_API_KEY` | _(ninguna)_ | Clave de la API de Anthropic, leída por el SDK directamente del entorno. Solo hace falta si `EXTRACTOR` es `hybrid` o `claude`; sin ella, `hybrid` se degrada a solo-OCR y `claude` devuelve `OCR_ENGINE_UNAVAILABLE`. |
+| `CLAUDE_MODEL` | `claude-opus-5` | Modelo de Claude usado para el respaldo de IA. |
 | `MAX_UPLOAD_MB` | `10` | Tamaño máximo de archivo aceptado. |
 | `OCR_LANGUAGES` | `spa+eng` | Idiomas pasados a Tesseract. |
 | `CORS_ORIGINS` | `["http://localhost:4200"]` | Orígenes permitidos por CORS. |
@@ -79,11 +94,12 @@ cd frontend
 npm test
 ```
 
-Estado actual: 51 tests unitarios/integración pasan sin Tesseract
-(`pytest -m "not ocr"`); con Tesseract real (dentro de Docker) pasan también
-los 9 end-to-end marcados `@pytest.mark.ocr` sobre las fotos de `samples/`.
-En frontend, 22 tests (`ng test`) cubren el servicio de API
-(`HttpTestingController`), el interceptor de errores y los componentes de
+Estado actual: 71 tests unitarios/integración pasan sin Tesseract ni clave de
+Anthropic (`pytest -m "not ocr"` — el extractor de Claude se testea con el
+SDK falseado, nunca contra la API real); con Tesseract real (dentro de
+Docker) pasan también los 9 end-to-end marcados `@pytest.mark.ocr` sobre las
+fotos de `samples/`. En frontend, 12 tests (`ng test`) cubren el servicio de
+API (`HttpTestingController`), el interceptor de errores y el componente de
 resultado.
 
 ## Endpoints
@@ -91,8 +107,8 @@ resultado.
 - `POST /api/v1/labels/extract` — sube un archivo (`multipart/form-data`,
   campo `file`) y devuelve el análisis nutricional.
 - `GET /api/v1/traffic-light/config` — devuelve los umbrales del semáforo
-  activos, para que el frontend pueda mostrar la leyenda con los límites
-  reales.
+  activos. La UI actual no los consume (solo pinta el color ya calculado),
+  pero el endpoint se mantiene como parte del contrato público de la API.
 - `GET /health` — estado del servicio y del motor OCR (`ok` / `degraded`).
 
 ## Esquema de salida
@@ -125,6 +141,7 @@ Respuesta de `POST /api/v1/labels/extract` (200, completa o parcial):
   "traffic_light": {
     "energy_kcal": "red", "fat_g": "red", "carbohydrates_g": "amber", "protein_g": null
   },
+  "overall_traffic_light": "red",
   "checks": [
     {"name": "atwater_energy", "passed": false, "detail": "kcal declaradas 452 vs calculadas: no evaluable sin proteínas"}
   ],
@@ -134,6 +151,12 @@ Respuesta de `POST /api/v1/labels/extract` (200, completa o parcial):
 }
 ```
 
+El campo `extractor` identifica qué motor produjo *ese* resultado concreto:
+`tesseract-rules@1.0` (solo OCR, cuando encontró los cuatro campos sin
+dudas) o `claude-vision@1.0` (cuando el modo híbrido necesitó el respaldo de
+IA sobre la misma foto — en ese caso `warnings` incluye un aviso explícito).
+Campos con `source: "claude-vision"` vienen de ese respaldo en vez del OCR.
+
 ### Significado de los estados por campo
 
 Los cuatro campos (`energy_kcal`, `fat_g`, `carbohydrates_g`, `protein_g`) se
@@ -142,15 +165,18 @@ devuelven **siempre**, nunca se omiten en silencio:
 - **`ok`**: leído por OCR y conforme con las validaciones (rango plausible,
   coherencia kJ/kcal, Atwater).
 - **`doubtful`**: leído, pero con una corrección de OCR aplicada (p. ej.
-  `B→8`) o que falla alguna validación. El campo se pinta con color de
-  semáforo igualmente, pero con borde discontinuo, icono de aviso y el
-  motivo (`reason`) visible.
+  `B→8`) o que falla alguna validación. Lleva el motivo en `reason`.
 - **`not_found`**: la palabra clave no aparece en el texto extraído. Sin
   color de semáforo (gris) — nunca verde por defecto.
 
 Un resultado con 1 a 3 campos encontrados sigue siendo un `200` (parcial). La
 API solo devuelve un error cuando no hay absolutamente nada aprovechable en
 el documento (ver catálogo de errores más abajo).
+
+> La API siempre devuelve el estado, la confianza, el `raw_text` y el
+> `reason` de cada campo por separado. La interfaz actual, deliberadamente,
+> no los pinta uno a uno: solo muestra el valor de los cuatro campos y un
+> semáforo único del producto (ver más abajo), para mantenerla simple.
 
 ## Umbrales del semáforo
 
@@ -180,12 +206,21 @@ Reglas de negocio fijas, cubiertas por tests (`test_traffic_light.py`,
 incluyendo los límites exactos 3,0 g → verde, 17,5 g → ámbar, 17,6 g → rojo):
 
 - `not_found` → sin color, nunca verde por defecto.
-- `doubtful` → color calculado, pero marcado visualmente como dudoso.
+- `doubtful` → se calcula igual el color que `ok` (la UI no lo distingue
+  visualmente hoy, pero el dato está en la respuesta).
 - YAML de umbrales inválido (`green_max >= red_min`) → la app no arranca.
 
-`GET /api/v1/traffic-light/config` expone estos umbrales para que el
-frontend pueda mostrar la leyenda con los límites reales en vez de tenerlos
-hardcodeados.
+### Semáforo único del producto
+
+Además del color por campo (`traffic_light`), la respuesta incluye
+`overall_traffic_light`: un único color para "el producto en conjunto", que
+es el que pinta la interfaz (no muestra semáforos por nutriente). La regla
+es "el peor color gana" (`app/domain/traffic_light.py::overall_color`, con
+tests en `test_traffic_light.py`): si algún nutriente encontrado es rojo, el
+producto es rojo; si no, ámbar si alguno lo es; si todos los encontrados son
+verdes, verde; si no se encontró ningún campo con color, `null`. Es una
+regla propia (razonable, pero no un estándar), igual que los umbrales de
+kcal, hidratos y proteínas.
 
 ## Catálogo de errores
 
@@ -202,7 +237,7 @@ Formato único de error:
 | `CORRUPT_FILE` | 422 | Pillow/PyMuPDF no pueden abrir el archivo |
 | `NO_TEXT_DETECTED` | 422 | El OCR no devuelve texto aprovechable |
 | `NO_NUTRITION_TABLE` | 422 | Hay texto pero ningún campo nutricional reconocible |
-| `OCR_ENGINE_UNAVAILABLE` | 503 | Falta el binario de Tesseract (también visible en `/health`) |
+| `OCR_ENGINE_UNAVAILABLE` | 503 | Falta el binario de Tesseract, o (con `EXTRACTOR=claude`) falta `ANTHROPIC_API_KEY` (también visible en `/health`) |
 | `INTERNAL_ERROR` | 500 | Cualquier otro fallo; se devuelve `request_id` para soporte y la traza queda solo en el log del servidor |
 
 Un `exception_handler` global (`app/api/errors.py`) traduce cada excepción
@@ -224,14 +259,27 @@ api/  →  services/  →  extraction/ (Protocol Extractor)
 - `app/api/`: endpoints y esquemas Pydantic. Cero lógica de negocio.
 - `app/services/label_analysis.py`: orquesta extractor + semáforo.
 - `app/extraction/base.py`: `Extractor` como `Protocol`; `factory.py` elige
-  la implementación según `EXTRACTOR`. Sustituir Tesseract por otra cosa
-  (incluido un extractor LLM) implica escribir una clase que cumpla el
-  `Protocol` y una línea en `factory.py` — cero cambios en API, servicio o
-  frontend.
+  la implementación según `EXTRACTOR`. Añadir un extractor nuevo implica
+  escribir una clase que cumpla el `Protocol` y una línea en `factory.py` —
+  cero cambios en API, servicio o frontend. Hoy hay tres: `tesseract`,
+  `claude` e `hybrid` (compone los otros dos).
 - `app/extraction/tesseract/`: `preprocess.py` (OpenCV) → `ocr.py`
-  (pytesseract) → `parser.py` + `synonyms.py` (texto → valores) →
-  `validators.py` (rangos, Atwater, kJ↔kcal), compuestos en `extractor.py`.
-- `app/domain/`: modelos y semáforo. Sin I/O, sin imports de FastAPI ni de OCR.
+  (pytesseract) → `parser.py` + `synonyms.py` (texto → valores), compuestos
+  en `extractor.py`.
+- `app/extraction/claude/extractor.py`: envía la foto a Claude con visión
+  pidiendo salida JSON estructurada con los cuatro campos; es el único
+  módulo que conoce el SDK de Anthropic.
+- `app/extraction/hybrid.py`: si el OCR encuentra los cuatro campos sin
+  dudas, se queda con ese resultado; si no, repite la extracción completa
+  con Claude. Si el respaldo de IA falla (sin clave, sin red), se degrada al
+  resultado parcial del OCR en vez de romper la petición.
+- `app/extraction/magic_bytes.py`: detección de tipo real por magic bytes,
+  compartida por los extractores.
+- `app/domain/`: modelos, semáforo y validadores físicos (`validators.py`,
+  `nutrition_checks.py`: rango plausible, Atwater, kJ/kcal, suma de macros).
+  Todo puro, sin I/O ni imports de FastAPI, OCR o el SDK de Anthropic — por
+  eso lo reutilizan tanto el extractor OCR como el de IA: el criterio de
+  "dudoso" es el mismo sin importar de dónde vino el valor.
 
 ## `samples/`
 
@@ -257,14 +305,25 @@ Este proyecto se ha construido con ayuda de un asistente de codificación
   se propusieron con el asistente y se verificaron contra el comportamiento
   real.
 - **Medición de acierto sobre `samples/`**: el análisis campo a campo de por
-  qué fallan `2.jpg`, `4.jpg` y `5.jpg` (ver `samples/README.md`) se hizo
-  con ayuda del asistente para interpretar la salida real del OCR.
+  qué fallan `2.jpg`, `4.jpg` y `5.jpg` (ver `samples/README.md`) se hizo con
+  ayuda del asistente para interpretar la salida real del OCR, y esa
+  medición fue la que motivó añadir el respaldo de IA descrito abajo.
 
-Importante: **no se ha usado ningún LLM como parte del pipeline de
-extracción** — toda la extracción es OCR local (Tesseract) + reglas
-deterministas, tal como pedía la prueba. El asistente se ha usado solo como
-herramienta de desarrollo; cada decisión de diseño, cada línea de código y
-cada test se han revisado y se pueden defender.
+El asistente se ha usado como herramienta de desarrollo en todo el proyecto;
+cada decisión de diseño, cada línea de código y cada test se han revisado y
+se pueden defender.
+
+## Uso de IA en el producto (no solo en el desarrollo)
+
+A diferencia del punto anterior —el asistente que ayudó a *escribir* el
+código—, esta sección es distinta: el propio NutriScan **llama a la API de
+Claude en tiempo de ejecución** como parte del pipeline de extracción,
+cuando `EXTRACTOR=hybrid` (el valor por defecto) o `EXTRACTOR=claude`. El
+OCR local sigue siendo el camino principal — gratis, rápido, auditable —; la
+IA solo entra cuando ese camino no da un resultado completo y fiable, sobre
+el mismo `Protocol Extractor`, sin que el servicio ni el frontend sepan qué
+motor respondió. El razonamiento completo de esta decisión está en la
+reflexión técnica, más abajo.
 
 ## Reflexión técnica
 
@@ -273,12 +332,23 @@ cada test se han revisado y se pueden defender.
 - **LLM con visión (Opción A)**: más tolerante a fotos malas, pero añade
   coste por petición, latencia, dependencia externa y respuestas no
   deterministas. Para extraer 4 números de un formato regulado por ley
-  (Reglamento UE 1169/2011, orden fijo de nutrientes) es desproporcionado.
-- **OCR + reglas (Opción B, elegido)**: determinista, gratis, offline y
-  auditable — cada valor lleva el texto exacto del que salió
-  (`raw_text`). La validación física (Atwater, kJ/kcal) compensa la
-  fragilidad del OCR y da una medida objetiva de "dudoso" en vez de una
-  confianza opaca de caja negra.
+  (Reglamento UE 1169/2011, orden fijo de nutrientes), usarlo como único
+  camino es desproporcionado.
+- **OCR + reglas (Opción B)**: determinista, gratis, offline y auditable —
+  cada valor lleva el texto exacto del que salió (`raw_text`). La
+  validación física (Atwater, kJ/kcal) compensa la fragilidad del OCR y da
+  una medida objetiva de "dudoso" en vez de una confianza opaca de caja
+  negra. Es el diseño con el que arrancó el proyecto.
+- **Híbrido: B primero, A como respaldo (elegido)**: tras medir la Opción B
+  sola sobre fotos reales propias (ver `samples/README.md`), la pregunta
+  pasó de "¿cuál de las dos opciones?" a "¿cómo conservo las ventajas de B
+  sin entregar un sistema que falla en fotos reales?". El híbrido responde
+  eso: la ruta gratis y determinista sigue siendo la primera y la que se usa
+  cuando funciona, y solo cuando no da un resultado completo y fiable se
+  repite la extracción con IA sobre la misma foto. El coste y la latencia
+  extra solo se pagan cuando de verdad hacen falta, y el usuario lo ve
+  explícitamente (`warnings` + el campo `extractor`) en vez de quedar
+  oculto.
 - **Bases de datos por código de barras (Open Food Facts)**: descartado como
   núcleo porque no es extraer del documento que sube el usuario, pero es una
   buena mejora futura como verificación cruzada.
@@ -297,12 +367,27 @@ cada test se han revisado y se pueden defender.
   estándar oficial (solo grasas lo tiene).
 - No distingue sólidos de líquidos; la FSA usa umbrales distintos para
   bebidas y aquí se aplican siempre los de sólido.
+- El respaldo de IA depende de un servicio externo: tiene coste por
+  petición, latencia adicional y necesita red y una clave de API — por eso
+  el modo `hybrid` se degrada a solo-OCR en vez de fallar cuando esa clave
+  no está configurada.
+- La condición para activar el respaldo es simple a propósito ("¿los cuatro
+  campos están en `ok`?"): no compara la confianza de Claude contra la del
+  OCR campo a campo, así que no mezcla lo mejor de cada fuente dentro de una
+  misma foto. Es una limitación conocida, no un olvido.
+- `overall_traffic_light` usa "el peor color gana": un solo nutriente en
+  rojo tiñe todo el producto de rojo, aunque los otros tres sean verdes. Es
+  una regla deliberadamente simple (y propia, no un estándar) a cambio de
+  dar un veredicto único y fácil de entender en la interfaz.
 
 ### Si fuera a producción
 
-- Extractor híbrido: OCR primero y un extractor LLM solo como respaldo
-  cuando la confianza baja de un umbral, detrás del mismo `Protocol
-  Extractor` — sin tocar el resto de capas.
+- Fusión más fina entre OCR e IA: en vez de descartar el resultado del OCR
+  entero en cuanto un campo es dudoso, comparar campo a campo y quedarse con
+  el de mayor confianza de cada fuente (hoy el híbrido sustituye el
+  resultado completo, más simple pero menos preciso).
+- Medir el acierto del respaldo de IA sobre el mismo banco de `samples/` con
+  una clave real, para comparar objetivamente contra el OCR solo.
 - Recorte asistido en el frontend (el usuario marca la tabla) y detección
   automática de la región de interés.
 - Persistencia de resultados y corrección manual por el usuario, que
@@ -314,9 +399,31 @@ cada test se han revisado y se pueden defender.
 
 ### Preguntas probables en la defensa
 
-- **¿Cómo cambiarías Tesseract por Claude o Gemini?** Una nueva clase que
-  cumpla `Extractor` (`extraction/base.py`), una línea en `factory.py`. Cero
-  cambios en API, servicio o frontend.
+- **¿Cómo cambiarías Tesseract por Claude o Gemini?** Ya está hecho para
+  Claude: `extraction/claude/extractor.py` cumple el mismo `Protocol`
+  (`extraction/base.py`) que Tesseract, y `factory.py` lo construye con una
+  rama más. Cero cambios en API, servicio o frontend. Cambiar a otro
+  proveedor sería la misma idea: una clase nueva.
+- **¿Por qué no usar solo IA, ya que está disponible?** Porque el OCR es
+  gratis, más rápido y determinista cuando funciona. Usar IA como respaldo
+  en vez de como único camino paga el coste y la latencia extra solo cuando
+  de verdad hacen falta.
+- **¿Cómo decide el híbrido cuándo usar IA?** Si el OCR deja los cuatro
+  campos en `ok`, se queda con ese resultado (`extraction/hybrid.py`). Si
+  falta algún campo, está `doubtful`, o el OCR no encuentra nada, repite la
+  extracción completa con Claude sobre la misma foto. Si Claude falla (sin
+  clave, sin red), se degrada al resultado parcial del OCR en vez de romper
+  la petición.
+- **¿Por qué los validadores físicos (Atwater, kJ/kcal) se aplican también
+  al resultado de Claude?** Viven en `app/domain/` (sin depender de OCR ni
+  del SDK de Anthropic) precisamente para eso: el criterio de qué es
+  "dudoso" es el mismo sin importar qué extractor produjo el valor.
+- **¿Por qué hay un semáforo por campo (`traffic_light`) y otro global
+  (`overall_traffic_light`) si la interfaz solo pinta el segundo?** Son
+  cosas distintas: el semáforo por campo es el dato auditable; el global es
+  una decisión de UX ("un veredicto, no cuatro") construida a partir de esos
+  datos con una regla también de dominio ("el peor color gana"), no decidida
+  en el frontend.
 - **¿Qué pasa si el OCR lee "5B g"?** Se corrige `B→8` en contexto numérico,
   el campo queda `doubtful` con el motivo en `reason`, y la validación
   Atwater lo confirma o lo tumba.
@@ -332,8 +439,9 @@ cada test se han revisado y se pueden defender.
 |---|---|
 | Backend | Python 3.12, FastAPI, Pydantic v2, pydantic-settings |
 | OCR | Tesseract 5 vía pytesseract, idiomas `spa+eng` |
+| IA (respaldo) | SDK oficial `anthropic`, modelo Claude con visión (`CLAUDE_MODEL`, por defecto `claude-opus-5`), salida JSON estructurada |
 | Imagen | OpenCV (`opencv-python-headless`), Pillow |
 | PDF | PyMuPDF |
 | Frontend | Angular 18+, componentes standalone, signals |
-| Gráficos | SVG propio (anillo de macros y barras de semáforo), sin librerías |
+| UI de resultado | Semáforo único del producto + los 4 valores, sin librerías de gráficos |
 | Tests | pytest + pytest-cov (backend), Jasmine/Karma (frontend) |

@@ -32,6 +32,7 @@ class LabelExtractionResponse(BaseModel):
     basis: str
     fields: dict[str, NutritionFieldSchema]
     traffic_light: dict[str, str | None]
+    overall_traffic_light: str | None
     checks: list[CheckResultSchema]
     warnings: list[str]
     extractor: str
@@ -76,6 +77,7 @@ def to_response(result: LabelAnalysisResult) -> LabelExtractionResponse:
         traffic_light={
             name: color.value if color is not None else None for name, color in result.traffic_light.items()
         },
+        overall_traffic_light=result.overall_traffic_light.value if result.overall_traffic_light is not None else None,
         checks=[CheckResultSchema(name=c.name, passed=c.passed, detail=c.detail) for c in result.checks],
         warnings=result.warnings,
         extractor=result.extractor,

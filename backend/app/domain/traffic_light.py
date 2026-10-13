@@ -66,3 +66,20 @@ def classify_value(value: float, rule: TrafficLightRule) -> TrafficLightColor:
 
 def build_rules(raw_rules: dict[str, dict]) -> dict[str, TrafficLightRule]:
     return {field_name: TrafficLightRule(**rule) for field_name, rule in raw_rules.items()}
+
+
+def overall_color(colors: dict[str, TrafficLightColor | None]) -> TrafficLightColor | None:
+    """Semáforo único del producto: el peor color de entre los campos
+    encontrados ("worst wins"). Un solo nutriente en rojo basta para que el
+    producto en conjunto se pinte en rojo. Los campos sin color (not_found)
+    no cuentan ni a favor ni en contra; si no hay ningún campo con color,
+    el resultado es None (no se puede juzgar el producto).
+    """
+    known = [color for color in colors.values() if color is not None]
+    if not known:
+        return None
+    if TrafficLightColor.RED in known:
+        return TrafficLightColor.RED
+    if TrafficLightColor.AMBER in known:
+        return TrafficLightColor.AMBER
+    return TrafficLightColor.GREEN

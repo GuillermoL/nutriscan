@@ -60,6 +60,7 @@ class LabelAnalysisResult:
     basis: str
     fields: dict[str, NutritionField]
     traffic_light: dict[str, TrafficLightColor | None]
+    overall_traffic_light: TrafficLightColor | None
     checks: list[CheckResult]
     warnings: list[str]
     extractor: str

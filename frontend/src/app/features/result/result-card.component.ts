@@ -1,3 +1,4 @@
+import { DecimalPipe } from '@angular/common';
 import { Component, computed, input } from '@angular/core';
 
 import {
@@ -5,31 +6,39 @@ import {
   FieldName,
   LabelExtractionResponse,
   NUTRITION_FIELD_NAMES,
-  TrafficLightRule
+  TrafficLightColor
 } from '../../core/models/extraction.model';
-import { FieldStatusBadgeComponent } from '../../shared/field-status-badge.component';
-import { MacroDonutComponent } from './macro-donut.component';
-import { TrafficLightBarComponent } from './traffic-light-bar.component';
+
+const OVERALL_LABEL: Record<TrafficLightColor, string> = {
+  green: 'Saludable',
+  amber: 'Moderado',
+  red: 'Poco saludable'
+};
 
 @Component({
   selector: 'app-result-card',
   standalone: true,
-  imports: [MacroDonutComponent, TrafficLightBarComponent, FieldStatusBadgeComponent],
+  imports: [DecimalPipe],
   templateUrl: './result-card.component.html',
   styleUrl: './result-card.component.css'
 })
 export class ResultCardComponent {
   readonly result = input.required<LabelExtractionResponse>();
-  readonly trafficLightRules = input<Record<FieldName, TrafficLightRule> | null>(null);
 
   readonly fieldNames = NUTRITION_FIELD_NAMES;
   readonly fieldLabels = FIELD_LABELS;
 
-  readonly foundCount = computed(
-    () => this.fieldNames.filter((name) => this.result().fields[name].status !== 'not_found').length
-  );
+  readonly overallColor = computed<TrafficLightColor | null>(() => this.result().overall_traffic_light);
+  readonly overallLabel = computed(() => {
+    const color = this.overallColor();
+    return color ? OVERALL_LABEL[color] : 'Sin valorar';
+  });
 
-  ruleFor(name: FieldName): TrafficLightRule | null {
-    return this.trafficLightRules()?.[name] ?? null;
+  valueFor(name: FieldName): number | null {
+    return this.result().fields[name].value;
+  }
+
+  unitFor(name: FieldName): string {
+    return this.result().fields[name].unit;
   }
 }

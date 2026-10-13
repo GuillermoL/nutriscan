@@ -20,7 +20,7 @@ DEFAULT_TRAFFIC_LIGHT_PATH = BASE_DIR / "config" / "traffic_light.yaml"
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="", extra="ignore")
 
-    extractor: str = "tesseract"
+    extractor: str = "hybrid"
     max_upload_mb: int = 10
     ocr_languages: str = "spa+eng"
     traffic_light_config_path: Path = DEFAULT_TRAFFIC_LIGHT_PATH

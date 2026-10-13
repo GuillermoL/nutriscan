@@ -10,6 +10,7 @@ from app.domain.traffic_light import (
     TrafficLightRule,
     build_rules,
     classify_value,
+    overall_color,
 )
 from app.services.label_analysis import analyze_label
 
@@ -99,3 +100,18 @@ def test_not_found_field_never_gets_a_color() -> None:
     assert result.traffic_light["energy_kcal"] is None
     assert result.traffic_light["protein_g"] is None
     assert result.traffic_light["fat_g"] is TrafficLightColor.GREEN
+
+
+@pytest.mark.parametrize(
+    "colors, expected",
+    [
+        ({"a": TrafficLightColor.GREEN, "b": TrafficLightColor.GREEN}, TrafficLightColor.GREEN),
+        ({"a": TrafficLightColor.GREEN, "b": TrafficLightColor.AMBER}, TrafficLightColor.AMBER),
+        ({"a": TrafficLightColor.GREEN, "b": TrafficLightColor.RED}, TrafficLightColor.RED),
+        ({"a": TrafficLightColor.AMBER, "b": TrafficLightColor.RED}, TrafficLightColor.RED),
+        ({"a": None, "b": TrafficLightColor.GREEN}, TrafficLightColor.GREEN),
+        ({"a": None, "b": None}, None),
+    ],
+)
+def test_overall_color_is_the_worst_of_the_known_colors(colors, expected) -> None:
+    assert overall_color(colors) is expected

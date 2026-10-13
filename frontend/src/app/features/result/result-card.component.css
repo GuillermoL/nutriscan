@@ -8,59 +8,54 @@
   border: 1px solid var(--border);
 }
 
-.result-card__partial-note {
-  margin: 0;
-  padding: 0.6rem 0.8rem;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--status-warning) 15%, var(--surface-1));
-  color: var(--text-primary);
-  font-size: 0.9rem;
+.result-card__overall {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }
 
-.result-card__bars {
+.result-card__overall-dot {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.result-card__overall[data-color='green'] .result-card__overall-dot {
+  background: var(--status-ok, #2e7d32);
+}
+
+.result-card__overall[data-color='amber'] .result-card__overall-dot {
+  background: var(--status-warning, #f9a825);
+}
+
+.result-card__overall[data-color='red'] .result-card__overall-dot {
+  background: var(--status-critical, #c62828);
+}
+
+.result-card__overall-label {
+  font-weight: 700;
+}
+
+.result-card__fields {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.6rem;
+  margin: 0;
 }
 
 .result-card__field {
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
-.result-card__field app-traffic-light-bar {
-  flex: 1;
-}
-
-.result-card__warnings {
-  margin: 0;
-  padding-left: 1.1rem;
-  color: var(--status-warning);
-  font-size: 0.85rem;
-}
-
-.result-card__checks {
-  font-size: 0.85rem;
+.result-card__field dt {
   color: var(--text-secondary);
 }
 
-.result-card__checks summary {
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.result-card__checks ul {
-  margin: 0.5rem 0 0;
-  padding-left: 1.1rem;
-}
-
-.result-card__check--failed {
-  color: var(--status-critical);
-}
-
-.result-card__meta {
+.result-card__field dd {
   margin: 0;
-  color: var(--text-muted);
-  font-size: 0.75rem;
+  font-weight: 600;
 }

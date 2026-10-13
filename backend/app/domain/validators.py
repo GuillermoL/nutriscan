@@ -1,7 +1,9 @@
 """Validaciones físicas y de rango sobre valores ya extraídos.
 
 Funciones puras: reciben números, no objetos del parser ni del OCR, para
-poder testearlas sin imágenes ni Tesseract.
+poder testearlas sin imágenes ni Tesseract. Viven en el dominio (no en
+extraction/tesseract/) porque son reglas de negocio compartidas por
+cualquier extractor, no solo por el basado en OCR.
 """
 from __future__ import annotations
 

@@ -19,13 +19,14 @@
   }
 
   @if (isBusy) {
-    <p class="app__status" role="status">
+    <div class="app__status" role="status">
+      <span class="spinner" aria-hidden="true"></span>
       {{ state() === 'uploading' ? 'Subiendo imagen…' : 'Analizando la etiqueta…' }}
-    </p>
+    </div>
   }
 
   @if ((state() === 'success' || state() === 'partial') && result()) {
-    <app-result-card [result]="result()!" [trafficLightRules]="trafficLightRules()" />
+    <app-result-card [result]="result()!" />
     <button type="button" class="app__retry" (click)="retry()">Analizar otra foto</button>
   }
 </main>

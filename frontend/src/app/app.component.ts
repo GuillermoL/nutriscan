@@ -1,7 +1,7 @@
 import { HttpEventType } from '@angular/common/http';
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, signal } from '@angular/core';
 
-import { ApiErrorDetail, FieldName, LabelExtractionResponse, NUTRITION_FIELD_NAMES, TrafficLightRule } from './core/models/extraction.model';
+import { ApiErrorDetail, LabelExtractionResponse, NUTRITION_FIELD_NAMES } from './core/models/extraction.model';
 import { LabelApiService } from './core/services/label-api.service';
 import { ResultCardComponent } from './features/result/result-card.component';
 import { UploadDropzoneComponent } from './features/upload/upload-dropzone.component';
@@ -15,21 +15,12 @@ export type AppState = 'idle' | 'uploading' | 'processing' | 'success' | 'partia
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
-export class AppComponent implements OnInit {
+export class AppComponent {
   readonly state = signal<AppState>('idle');
   readonly result = signal<LabelExtractionResponse | null>(null);
   readonly error = signal<ApiErrorDetail | null>(null);
-  readonly trafficLightRules = signal<Record<FieldName, TrafficLightRule> | null>(null);
 
   constructor(private readonly api: LabelApiService) {}
-
-  ngOnInit(): void {
-    this.api.getTrafficLightConfig().subscribe({
-      next: (rules) => this.trafficLightRules.set(rules),
-      // La leyenda de umbrales es un extra: si falla, las barras siguen funcionando sin bandas de color.
-      error: () => this.trafficLightRules.set(null)
-    });
-  }
 
   get isBusy(): boolean {
     const state = this.state();
