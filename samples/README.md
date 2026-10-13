@@ -3,15 +3,13 @@
 8 fotos propias de etiquetas nutricionales reales (productos comerciales,
 sin datos personales), usadas para dos cosas:
 
-1. Afinar el preprocesado (`extraction/tesseract/preprocess.py`) con casos difíciles de verdad.
+1. Afinar el preprocesado (`extraction/tesseract/preprocess.py`) con casos difíciles.
 2. Medir el acierto del sistema: `tests/integration/test_e2e_ocr.py` (marcado `@pytest.mark.ocr`)
-   compara la extracción real contra `expected.json` y exige un mínimo del 70% de acierto por foto.
+   compara la extracción real contra `expected.json`.
 
 ## Resultado medido (con Tesseract real, dentro de Docker)
 
-**9/32 campos correctos (28%)** sobre las 8 fotos, con tolerancia del 5%. Es una
-cifra honesta para fotos reales y deliberadamente difíciles (varias de baja
-resolución, fondos ilustrados o con reflejos) — no un escaparate de casos fáciles.
+**9/32 campos correctos (28%)** sobre las 8 fotos, con tolerancia del 5%. Las imágenes son obtenidas de internet.
 
 | Foto | Qué demuestra | Resultado |
 |---|---|---|

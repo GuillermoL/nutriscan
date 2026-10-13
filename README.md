@@ -305,7 +305,7 @@ Este proyecto se ha construido con ayuda de un asistente de codificación
   se propusieron con el asistente y se verificaron contra el comportamiento
   real.
 - **Medición de acierto sobre `samples/`**: el análisis campo a campo de por
-  qué fallan `2.jpg`, `4.jpg` y `5.jpg` (ver `samples/README.md`) se hizo con
+  qué fallan `2.jpg`, `4.jpg` y `5.jpg` se hizo con
   ayuda del asistente para interpretar la salida real del OCR, y esa
   medición fue la que motivó añadir el respaldo de IA descrito abajo.
 
@@ -340,31 +340,26 @@ reflexión técnica, más abajo.
   una medida objetiva de "dudoso" en vez de una confianza opaca de caja
   negra. Es el diseño con el que arrancó el proyecto.
 - **Híbrido: B primero, A como respaldo (elegido)**: tras medir la Opción B
-  sola sobre fotos reales propias (ver `samples/README.md`), la pregunta
+  sola sobre fotos reales propias y obtener sólo un 28% de aciertos, la pregunta
   pasó de "¿cuál de las dos opciones?" a "¿cómo conservo las ventajas de B
   sin entregar un sistema que falla en fotos reales?". El híbrido responde
-  eso: la ruta gratis y determinista sigue siendo la primera y la que se usa
+  eso: la ruta gratis sigue siendo la primera y la que se usa
   cuando funciona, y solo cuando no da un resultado completo y fiable se
   repite la extracción con IA sobre la misma foto. El coste y la latencia
-  extra solo se pagan cuando de verdad hacen falta, y el usuario lo ve
-  explícitamente (`warnings` + el campo `extractor`) en vez de quedar
-  oculto.
-- **Bases de datos por código de barras (Open Food Facts)**: descartado como
-  núcleo porque no es extraer del documento que sube el usuario, pero es una
-  buena mejora futura como verificación cruzada.
+  extra solo se pagan cuando de verdad hacen falta.
+
 
 ### Limitaciones actuales
 
 - Fotos con envase muy curvo, reflejos fuertes o letra muy pequeña degradan
-  el OCR por debajo de lo recuperable (ver `4.jpg`/`5.jpg` en
-  `samples/README.md`).
+  el OCR por debajo de lo recuperable.
 - Solo español e inglés; los sinónimos (`synonyms.py`) se mantienen a mano.
 - La columna "100 g" se elige por posición X de la cabecera; maquetaciones
   muy creativas (o OCR que funde una coma y pierde la unidad `g`, ver
   `2.jpg`) pueden hacer que se elija la columna equivocada sin que ninguna
   validación lo detecte, porque el valor cae dentro de rango plausible.
 - Los umbrales de kcal, hidratos y proteínas son una propuesta propia, no un
-  estándar oficial (solo grasas lo tiene).
+  estándar oficial.
 - No distingue sólidos de líquidos; la FSA usa umbrales distintos para
   bebidas y aquí se aplican siempre los de sólido.
 - El respaldo de IA depende de un servicio externo: tiene coste por
@@ -380,58 +375,6 @@ reflexión técnica, más abajo.
   una regla deliberadamente simple (y propia, no un estándar) a cambio de
   dar un veredicto único y fácil de entender en la interfaz.
 
-### Si fuera a producción
-
-- Fusión más fina entre OCR e IA: en vez de descartar el resultado del OCR
-  entero en cuanto un campo es dudoso, comparar campo a campo y quedarse con
-  el de mayor confianza de cada fuente (hoy el híbrido sustituye el
-  resultado completo, más simple pero menos preciso).
-- Medir el acierto del respaldo de IA sobre el mismo banco de `samples/` con
-  una clave real, para comparar objetivamente contra el OCR solo.
-- Recorte asistido en el frontend (el usuario marca la tabla) y detección
-  automática de la región de interés.
-- Persistencia de resultados y corrección manual por el usuario, que
-  además sirve como dataset para medir y mejorar el acierto con el tiempo.
-- Banco de evaluación con 100+ etiquetas y métrica de acierto por campo en
-  CI, en vez de las 8 fotos actuales.
-- Procesamiento asíncrono (cola) si el volumen crece, y observabilidad
-  (tiempos de procesado, tasa de `doubtful` por campo).
-
-### Preguntas probables en la defensa
-
-- **¿Cómo cambiarías Tesseract por Claude o Gemini?** Ya está hecho para
-  Claude: `extraction/claude/extractor.py` cumple el mismo `Protocol`
-  (`extraction/base.py`) que Tesseract, y `factory.py` lo construye con una
-  rama más. Cero cambios en API, servicio o frontend. Cambiar a otro
-  proveedor sería la misma idea: una clase nueva.
-- **¿Por qué no usar solo IA, ya que está disponible?** Porque el OCR es
-  gratis, más rápido y determinista cuando funciona. Usar IA como respaldo
-  en vez de como único camino paga el coste y la latencia extra solo cuando
-  de verdad hacen falta.
-- **¿Cómo decide el híbrido cuándo usar IA?** Si el OCR deja los cuatro
-  campos en `ok`, se queda con ese resultado (`extraction/hybrid.py`). Si
-  falta algún campo, está `doubtful`, o el OCR no encuentra nada, repite la
-  extracción completa con Claude sobre la misma foto. Si Claude falla (sin
-  clave, sin red), se degrada al resultado parcial del OCR en vez de romper
-  la petición.
-- **¿Por qué los validadores físicos (Atwater, kJ/kcal) se aplican también
-  al resultado de Claude?** Viven en `app/domain/` (sin depender de OCR ni
-  del SDK de Anthropic) precisamente para eso: el criterio de qué es
-  "dudoso" es el mismo sin importar qué extractor produjo el valor.
-- **¿Por qué hay un semáforo por campo (`traffic_light`) y otro global
-  (`overall_traffic_light`) si la interfaz solo pinta el segundo?** Son
-  cosas distintas: el semáforo por campo es el dato auditable; el global es
-  una decisión de UX ("un veredicto, no cuatro") construida a partir de esos
-  datos con una regla también de dominio ("el peor color gana"), no decidida
-  en el frontend.
-- **¿Qué pasa si el OCR lee "5B g"?** Se corrige `B→8` en contexto numérico,
-  el campo queda `doubtful` con el motivo en `reason`, y la validación
-  Atwater lo confirma o lo tumba.
-- **¿Por qué el semáforo vive en el backend?** Es una regla de negocio; el
-  frontend no debe decidir qué umbral hace que algo sea "rojo".
-- **¿Por qué un `200` con campos vacíos y no un error?** Un resultado
-  parcial sigue siendo útil para el usuario; el error se reserva para
-  cuando no hay absolutamente nada aprovechable en el documento.
 
 ## Stack
 
